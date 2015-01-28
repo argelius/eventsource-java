@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.Map;
 
 public class EventSourceChannelHandler extends SimpleChannelUpstreamHandler implements ConnectionHandler {
     private static final Pattern STATUS_PATTERN = Pattern.compile("HTTP/1.1 (\\d+) (.*)");
@@ -31,6 +32,7 @@ public class EventSourceChannelHandler extends SimpleChannelUpstreamHandler impl
     private final ClientBootstrap bootstrap;
     private final URI uri;
     private final EventStreamParser messageDispatcher;
+    private final Map<String, String> additionalHeaders;
 
     private final Timer timer = new HashedWheelTimer();
     private Channel channel;
@@ -42,12 +44,13 @@ public class EventSourceChannelHandler extends SimpleChannelUpstreamHandler impl
     private Integer status;
     private AtomicBoolean reconnecting = new AtomicBoolean(false);
 
-    public EventSourceChannelHandler(EventSourceHandler eventSourceHandler, long reconnectionTimeMillis, ClientBootstrap bootstrap, URI uri) {
+    public EventSourceChannelHandler(EventSourceHandler eventSourceHandler, long reconnectionTimeMillis, ClientBootstrap bootstrap, URI uri, Map<String, String> additionalHeaders) {
         this.eventSourceHandler = eventSourceHandler;
         this.reconnectionTimeMillis = reconnectionTimeMillis;
         this.bootstrap = bootstrap;
         this.uri = uri;
         this.messageDispatcher = new EventStreamParser(uri.toString(), eventSourceHandler, this);
+        this.additionalHeaders = additionalHeaders;
     }
 
     @Override
@@ -65,6 +68,13 @@ public class EventSourceChannelHandler extends SimpleChannelUpstreamHandler impl
         if (lastEventId != null) {
             request.addHeader("Last-Event-ID", lastEventId);
         }
+ 
+        if (additionalHeaders != null) { 
+          for (String key : additionalHeaders.keySet()) {
+            request.addHeader(key, additionalHeaders.get(key));
+          }
+        }
+
         e.getChannel().write(request);
         channel = e.getChannel();
     }

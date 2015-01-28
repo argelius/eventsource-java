@@ -17,6 +17,7 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.Map;
 
 public class EventSource  {
     public static final long DEFAULT_RECONNECTION_TIME_MILLIS = 2000;
@@ -43,14 +44,14 @@ public class EventSource  {
      * @param eventSourceHandler receives events
      * @see #close()
      */
-    public EventSource(Executor executor, long reconnectionTimeMillis, final URI uri, EventSourceHandler eventSourceHandler) {
+    public EventSource(Executor executor, long reconnectionTimeMillis, final URI uri, EventSourceHandler eventSourceHandler, Map<String, String> additionalHeaders) {
         bootstrap = new ClientBootstrap(
                 new NioClientSocketChannelFactory(
                         Executors.newSingleThreadExecutor(),
                         Executors.newSingleThreadExecutor()));
         bootstrap.setOption("remoteAddress", new InetSocketAddress(uri.getHost(), uri.getPort()));
 
-        clientHandler = new EventSourceChannelHandler(new AsyncEventSourceHandler(executor, eventSourceHandler), reconnectionTimeMillis, bootstrap, uri);
+        clientHandler = new EventSourceChannelHandler(new AsyncEventSourceHandler(executor, eventSourceHandler), reconnectionTimeMillis, bootstrap, uri, additionalHeaders);
 
         bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
             public ChannelPipeline getPipeline() throws Exception {
@@ -65,12 +66,16 @@ public class EventSource  {
         });
     }
 
+    public EventSource(Executor executor, long reconnectionTimeMillis, final URI uri, EventSourceHandler eventSourceHandler) {
+        this(executor, reconnectionTimeMillis, uri, eventSourceHandler, null);
+    }
+
     public EventSource(String uri, EventSourceHandler eventSourceHandler) {
         this(URI.create(uri), eventSourceHandler);
     }
 
     public EventSource(URI uri, EventSourceHandler eventSourceHandler) {
-        this(Executors.newSingleThreadExecutor(), DEFAULT_RECONNECTION_TIME_MILLIS, uri, eventSourceHandler);
+        this(Executors.newSingleThreadExecutor(), DEFAULT_RECONNECTION_TIME_MILLIS, uri, eventSourceHandler, null);
     }
 
     public ChannelFuture connect() {
