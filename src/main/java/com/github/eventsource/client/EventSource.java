@@ -44,14 +44,14 @@ public class EventSource  {
      * @param eventSourceHandler receives events
      * @see #close()
      */
-    public EventSource(Executor executor, long reconnectionTimeMillis, final URI uri, EventSourceHandler eventSourceHandler, Map<String, String> additionalHeaders) {
+    public EventSource(Executor executor, long reconnectionTimeMillis, final URI uri, EventSourceHandler eventSourceHandler, Map<String, String> additionalHeaders, String customBody) {
         bootstrap = new ClientBootstrap(
                 new NioClientSocketChannelFactory(
                         Executors.newSingleThreadExecutor(),
                         Executors.newSingleThreadExecutor()));
         bootstrap.setOption("remoteAddress", new InetSocketAddress(uri.getHost(), uri.getPort()));
 
-        clientHandler = new EventSourceChannelHandler(new AsyncEventSourceHandler(executor, eventSourceHandler), reconnectionTimeMillis, bootstrap, uri, additionalHeaders);
+        clientHandler = new EventSourceChannelHandler(new AsyncEventSourceHandler(executor, eventSourceHandler), reconnectionTimeMillis, bootstrap, uri, additionalHeaders, customBody);
 
         bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
             public ChannelPipeline getPipeline() throws Exception {
@@ -67,7 +67,11 @@ public class EventSource  {
     }
 
     public EventSource(Executor executor, long reconnectionTimeMillis, final URI uri, EventSourceHandler eventSourceHandler) {
-        this(executor, reconnectionTimeMillis, uri, eventSourceHandler, null);
+        this(executor, reconnectionTimeMillis, uri, eventSourceHandler, null, null);
+    }
+
+    public EventSource(Executor executor, long reconnectionTimeMillis, final URI uri, EventSourceHandler eventSourceHandler, Map<String, String> additionalHeaders) {
+        this(executor, reconnectionTimeMillis, uri, eventSourceHandler, additionalHeaders, null);
     }
 
     public EventSource(String uri, EventSourceHandler eventSourceHandler) {

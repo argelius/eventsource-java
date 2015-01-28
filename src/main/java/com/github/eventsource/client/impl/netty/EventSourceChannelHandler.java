@@ -15,6 +15,8 @@ import org.jboss.netty.util.HashedWheelTimer;
 import org.jboss.netty.util.Timeout;
 import org.jboss.netty.util.Timer;
 import org.jboss.netty.util.TimerTask;
+import org.jboss.netty.util.CharsetUtil;
+import org.jboss.netty.buffer.ChannelBuffers;
 
 import java.net.ConnectException;
 import java.net.URI;
@@ -33,6 +35,7 @@ public class EventSourceChannelHandler extends SimpleChannelUpstreamHandler impl
     private final URI uri;
     private final EventStreamParser messageDispatcher;
     private final Map<String, String> additionalHeaders;
+    private final String customBody;
 
     private final Timer timer = new HashedWheelTimer();
     private Channel channel;
@@ -44,13 +47,14 @@ public class EventSourceChannelHandler extends SimpleChannelUpstreamHandler impl
     private Integer status;
     private AtomicBoolean reconnecting = new AtomicBoolean(false);
 
-    public EventSourceChannelHandler(EventSourceHandler eventSourceHandler, long reconnectionTimeMillis, ClientBootstrap bootstrap, URI uri, Map<String, String> additionalHeaders) {
+    public EventSourceChannelHandler(EventSourceHandler eventSourceHandler, long reconnectionTimeMillis, ClientBootstrap bootstrap, URI uri, Map<String, String> additionalHeaders, String customBody) {
         this.eventSourceHandler = eventSourceHandler;
         this.reconnectionTimeMillis = reconnectionTimeMillis;
         this.bootstrap = bootstrap;
         this.uri = uri;
         this.messageDispatcher = new EventStreamParser(uri.toString(), eventSourceHandler, this);
         this.additionalHeaders = additionalHeaders;
+        this.customBody = customBody;
     }
 
     @Override
@@ -60,7 +64,15 @@ public class EventSourceChannelHandler extends SimpleChannelUpstreamHandler impl
 
     @Override
     public void channelConnected(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
-        HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, uri.toString());
+        HttpRequest request;
+
+        if (customBody == null) {
+          request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, uri.toString());
+        }
+        else {
+          request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.POST, uri.toString());
+        }
+
         request.addHeader(Names.ACCEPT, "text/event-stream");
         request.addHeader(Names.HOST, uri.getHost());
         request.addHeader(Names.ORIGIN, "http://" + uri.getHost());
@@ -73,6 +85,12 @@ public class EventSourceChannelHandler extends SimpleChannelUpstreamHandler impl
           for (String key : additionalHeaders.keySet()) {
             request.addHeader(key, additionalHeaders.get(key));
           }
+        }
+
+        if (customBody != null) {
+          request.addHeader(Names.CONTENT_LENGTH, customBody.length());
+          request.addHeader(Names.CONTENT_TYPE, "application/octet-stream");
+          request.setContent(ChannelBuffers.copiedBuffer(customBody, CharsetUtil.UTF_8));
         }
 
         e.getChannel().write(request);
